@@ -41,7 +41,6 @@ async def main():
     show_banner()
     print(f"{GREEN}[✔] Account Connected!{RESET}\n")
 
-    # --- ONE TIME SETUP ---
     bot_token = input(f"{CYAN}Enter Bot Token: {RESET}")
     try:
         target_user = int(input(f"{CYAN}Enter Your User ID: {RESET}"))
@@ -49,11 +48,10 @@ async def main():
         print(f"{RED}Invalid User ID!{RESET}")
         return
 
-    # Bot client ko start karna
     bot_app = Client("temp_bot", api_id=API_ID, api_hash=API_HASH, bot_token=bot_token)
     await bot_app.start()
 
-    print(f"\n{GREEN}Setup Complete! Bot will send media to ID: {target_user}{RESET}")
+    print(f"\n{GREEN}Setup Complete! Only Download Mode Enabled.{RESET}")
 
     while True:
         print(f"\n{YELLOW}═" * 35 + f"{RESET}")
@@ -61,46 +59,50 @@ async def main():
         if not link: continue
 
         try:
-            # Parsing
-            parts = link.split('/')
-            msg_id = int(parts[-1])
-            chat_id = int("-100" + parts[-2]) if "t.me/c/" in link else parts[-2]
+            # Simple Parsing
+            if "t.me/c/" in link:
+                parts = link.split('/')
+                chat_id = int("-100" + parts[-2])
+                msg_id = int(parts[-1])
+            else:
+                parts = link.split('/')
+                chat_id = parts[-2]
+                msg_id = int(parts[-1])
 
-            print(f"{YELLOW}Fetching message...{RESET}", end="\r")
+            print(f"{YELLOW}Status: Fetching from Telegram...{RESET}")
             msg = await app.get_messages(chat_id, msg_id)
 
             if msg.media:
-                # Restricted bypass: User account se download
+                # Direct Download (Restriction Bypass)
                 file_path = await app.download_media(
                     msg, 
                     progress=lambda c, t: progress(c, t, "Downloading")
                 )
                 print("\n")
                 
-                # Bot ke zariye delivery
+                # Bot Upload
                 await bot_app.send_document(
                     chat_id=target_user,
                     document=file_path,
-                    caption=msg.caption,
+                    caption=msg.caption if msg.caption else "",
                     progress=lambda c, t: progress(c, t, "Uploading")
                 )
                 print("\n")
                 
                 if os.path.exists(file_path):
-                    os.remove(file_path)
+                    os.remove(file_path) # Storage clean
             else:
-                await bot_app.send_message(target_user, msg.text)
+                # Text content
+                await bot_app.send_message(target_user, msg.text or "Media extraction failed.")
             
-            print(f"{GREEN}[✔] Success! Media sent by Bot to your ID.{RESET}")
+            print(f"{GREEN}[✔] Success! Sent to ID: {target_user}{RESET}")
 
-        except FloodWait as e:
-            print(f"{RED}FloodWait: Waiting {e.value}s{RESET}")
-            await asyncio.sleep(e.value)
         except Exception as e:
-            print(f"{RED}[✘] Error: {e}{RESET}")
+            print(f"\n{RED}[✘] Error: {e}{RESET}")
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
         print(f"\n{RED}Tool Stopped.{RESET}")
+                                           
